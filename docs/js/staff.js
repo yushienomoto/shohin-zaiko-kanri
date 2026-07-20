@@ -41,9 +41,12 @@
       '<div style="font-size:28px; font-weight:bold;">' + value + '</div></div>';
   }
 
+  var weeklyEntries = []; // { itemId, unit, qtyInput, resultArea, checkId }
+
   async function loadWeekly() {
     var el = document.getElementById('tab-weekly');
     el.innerHTML = '<div class="text-muted text-center">読み込み中...</div>';
+    weeklyEntries = [];
     try {
       var data = await callApi('checklist.getWeekly', {}, true);
       if (data.items.length === 0) {
@@ -54,6 +57,15 @@
       data.items.forEach(function (item) {
         el.appendChild(renderWeeklyItem(item));
       });
+
+      var bulkBtn = document.createElement('button');
+      bulkBtn.className = 'btn btn-primary btn-block';
+      bulkBtn.id = 'btn-bulk-check';
+      bulkBtn.style.position = 'sticky';
+      bulkBtn.style.bottom = '12px';
+      bulkBtn.textContent = '入力した数量をまとめて登録';
+      bulkBtn.addEventListener('click', submitAllWeeklyEntries);
+      el.appendChild(bulkBtn);
     } catch (e) {
       el.innerHTML = '<div class="alert alert-error">' + e.message + '</div>';
     }
@@ -80,45 +92,46 @@
     var resultArea = document.createElement('div');
     card.appendChild(resultArea);
 
-    var submitBtn = document.createElement('button');
-    submitBtn.className = 'btn btn-primary btn-block';
-    submitBtn.textContent = '確認を登録';
     var qtyInput = formRow.querySelector('.qty-input');
+    weeklyEntries.push({ itemId: item.itemId, unit: item.unit, qtyInput: qtyInput, resultArea: resultArea, checkId: null });
 
-    submitBtn.addEventListener('click', async function () {
-      var qty = qtyInput.value;
-      if (qty === '') { resultArea.innerHTML = '<div class="alert alert-error">数量を入力してください。</div>'; return; }
-      try {
-        var res = await callApi('stockCheck.submit', { itemId: item.itemId, currentQty: Number(qty), checkerName: session.staffName }, true);
-        resultArea.innerHTML = '<div class="alert alert-' + (res.judgement === '発注候補' ? 'warning' : 'success') + '">判定: ' + res.judgement + '</div>';
-        card.dataset.checkId = res.checkId;
-        submitBtn.textContent = '数量を修正';
-        loadSummary();
-        enableEditMode(card, res.checkId, qtyInput, resultArea, item.unit);
-      } catch (e) {
-        resultArea.innerHTML = '<div class="alert alert-error">' + e.message + '</div>';
-      }
-    });
-    card.appendChild(submitBtn);
     return card;
   }
 
-  function enableEditMode(card, checkId, qtyInput, resultArea, unit) {
-    var buttons = card.querySelectorAll('button');
-    var submitBtn = buttons[buttons.length - 1];
-    var newBtn = submitBtn.cloneNode(true);
-    submitBtn.parentNode.replaceChild(newBtn, submitBtn);
-    newBtn.addEventListener('click', async function () {
-      var qty = qtyInput.value;
-      if (qty === '') return;
+  async function submitAllWeeklyEntries() {
+    var bulkBtn = document.getElementById('btn-bulk-check');
+    var targets = weeklyEntries.filter(function (e) { return e.qtyInput.value !== ''; });
+    if (targets.length === 0) {
+      alert('数量を入力した商品がありません。');
+      return;
+    }
+    bulkBtn.disabled = true;
+    bulkBtn.textContent = '登録中...';
+
+    var okCount = 0;
+    var ngCount = 0;
+    for (var i = 0; i < targets.length; i++) {
+      var entry = targets[i];
+      var qty = Number(entry.qtyInput.value);
       try {
-        var res = await callApi('stockCheck.update', { checkId: checkId, newQty: Number(qty), operatorName: session.staffName }, true);
-        resultArea.innerHTML = '<div class="alert alert-' + (res.judgement === '発注候補' ? 'warning' : 'success') + '">判定(修正後): ' + res.judgement + '</div>';
-        loadSummary();
+        var res;
+        if (entry.checkId) {
+          res = await callApi('stockCheck.update', { checkId: entry.checkId, newQty: qty, operatorName: session.staffName }, true);
+        } else {
+          res = await callApi('stockCheck.submit', { itemId: entry.itemId, currentQty: qty, checkerName: session.staffName }, true);
+          entry.checkId = res.checkId;
+        }
+        entry.resultArea.innerHTML = '<div class="alert alert-' + (res.judgement === '発注候補' ? 'warning' : 'success') + '">判定: ' + res.judgement + '</div>';
+        okCount++;
       } catch (e) {
-        resultArea.innerHTML = '<div class="alert alert-error">' + e.message + '</div>';
+        entry.resultArea.innerHTML = '<div class="alert alert-error">' + e.message + '</div>';
+        ngCount++;
       }
-    });
+    }
+
+    bulkBtn.disabled = false;
+    bulkBtn.textContent = '入力した数量をまとめて登録（' + okCount + '件成功' + (ngCount > 0 ? '、' + ngCount + '件失敗' : '') + '）';
+    loadSummary();
   }
 
   async function loadCandidates() {
