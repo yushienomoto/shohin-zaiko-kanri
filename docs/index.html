@@ -1,0 +1,42 @@
+<title>消耗品在庫管理 - ホーム</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header class="app-header">
+  <h1>消耗品在庫管理</h1>
+</header>
+
+<div class="container">
+  <div class="card">
+    <div class="card-title">置き場から探す</div>
+    <div class="home-links">
+      <a href="location.html?loc=A">場所A</a>
+      <a href="location.html?loc=B">場所B</a>
+      <a href="location.html?loc=C">場所C</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">担当者・管理者の方へ</div>
+    <button class="btn btn-primary btn-block" id="btn-staff-login">担当者ログイン</button>
+    <button class="btn btn-outline btn-block mt-8" id="btn-admin-login">管理者ログイン</button>
+  </div>
+</div>
+
+<div id="login-modal" class="card" style="display:none; position:fixed; top:15%; left:50%; transform:translateX(-50%); width:90%; max-width:360px; z-index:100;">
+  <div class="card-title" id="login-modal-title">ログイン</div>
+  <div class="form-group">
+    <label>担当者名（初回のみ入力）</label>
+    <input type="text" id="login-name">
+  </div>
+  <div class="form-group">
+    <label>PIN</label>
+    <input type="password" id="login-pin" inputmode="numeric">
+  </div>
+  <div id="login-error" class="alert alert-error" style="display:none;"></div>
+  <button class="btn btn-primary btn-block" id="login-submit">ログイン</button>
+  <button class="btn btn-outline btn-block mt-8" id="login-cancel">キャンセル</button>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/home.js"></script>

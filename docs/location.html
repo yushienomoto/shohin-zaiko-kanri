@@ -1,0 +1,26 @@
+<title>置き場 - 消耗品在庫管理</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header class="app-header">
+  <h1 id="page-title">場所</h1>
+  <a href="index.html" style="color:#fff; font-size:14px;">ホーム</a>
+</header>
+
+<nav class="tabbar" id="location-nav"></nav>
+
+<div class="container">
+  <div class="form-group card">
+    <label>報告者名</label>
+    <input type="text" id="reporter-name" placeholder="お名前を入力">
+  </div>
+
+  <div id="alert-area"></div>
+
+  <div id="item-list"></div>
+
+  <button class="btn btn-primary btn-block" id="btn-submit" style="position:sticky; bottom:12px;">選択した商品を報告する</button>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/location.js"></script>

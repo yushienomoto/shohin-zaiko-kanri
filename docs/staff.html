@@ -1,0 +1,31 @@
+<title>担当者ホーム - 消耗品在庫管理</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header class="app-header">
+  <h1>担当者ホーム</h1>
+  <button class="btn btn-outline" id="btn-logout" style="min-height:32px; padding:4px 12px;">ログアウト</button>
+</header>
+
+<div class="container-wide">
+  <div class="grid-cards" id="summary-cards"></div>
+
+  <div id="pending-batches-area"></div>
+
+  <div class="mt-16">
+    <a class="btn btn-primary" href="order.html">発注処理へ進む</a>
+  </div>
+
+  <nav class="tabbar mt-16">
+    <button class="tab-btn active" data-tab="weekly">今週の確認</button>
+    <button class="tab-btn" data-tab="candidates">発注候補</button>
+    <button class="tab-btn" data-tab="all">全商品・履歴</button>
+  </nav>
+
+  <div id="tab-weekly" class="tab-panel"></div>
+  <div id="tab-candidates" class="tab-panel" style="display:none;"></div>
+  <div id="tab-all" class="tab-panel" style="display:none;"></div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/staff.js"></script>

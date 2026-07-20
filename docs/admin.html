@@ -1,0 +1,47 @@
+<title>管理者 - 消耗品在庫管理</title>
+<link rel="stylesheet" href="css/style.css">
+
+<header class="app-header">
+  <h1>管理者画面</h1>
+  <button class="btn btn-outline" id="btn-logout" style="min-height:32px; padding:4px 12px;">ログアウト</button>
+</header>
+
+<div class="container-wide">
+  <nav class="tabbar">
+    <button class="tab-btn active" data-tab="master">商品マスター</button>
+    <button class="tab-btn" data-tab="history">履歴検索</button>
+  </nav>
+
+  <div id="tab-master" class="tab-panel">
+    <div class="card">
+      <div class="card-title">新規商品追加</div>
+      <div class="grid-cards" id="create-form"></div>
+      <button class="btn btn-primary mt-8" id="btn-create">追加する</button>
+      <div id="create-result"></div>
+    </div>
+
+    <div class="card">
+      <label class="checkbox-line">
+        <input type="checkbox" id="chk-include-deactivated">
+        <span>廃止品も表示する</span>
+      </label>
+    </div>
+
+    <div id="master-list-area"></div>
+  </div>
+
+  <div id="tab-history" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div class="grid-cards" id="history-filter-form"></div>
+      <button class="btn btn-primary mt-8" id="btn-search">検索</button>
+      <button class="btn btn-outline mt-8" id="btn-export">CSV出力</button>
+    </div>
+    <div id="history-result-area"></div>
+  </div>
+</div>
+
+<div id="edit-modal" class="card" style="display:none; position:fixed; top:8%; left:50%; transform:translateX(-50%); width:92%; max-width:480px; z-index:100; max-height:84vh; overflow-y:auto;"></div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
