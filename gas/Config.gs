@@ -20,7 +20,7 @@ var SESSION_CONFIG = {
   SESSION_KEY_PREFIX: 'session_'
 };
 
-var LOCATIONS = ['A', 'B', 'C'];
+var LOCATIONS = ['A', 'B', 'C', 'D'];
 
 var LOCATION_A_CATEGORIES = ['テープ・固定用品', '梱包・施工用品', '清掃・共用品'];
 

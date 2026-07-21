@@ -24,7 +24,7 @@
     var input;
     if (f === '場所') {
       input = document.createElement('select');
-      ['A', 'B', 'C'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; input.appendChild(o); });
+      ['A', 'B', 'C', 'D'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; input.appendChild(o); });
     } else if (f === '重要度') {
       input = document.createElement('select');
       ['A', 'B', 'C'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; input.appendChild(o); });

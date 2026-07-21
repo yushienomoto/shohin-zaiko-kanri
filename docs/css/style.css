@@ -197,7 +197,7 @@ label { font-size: 13px; color: var(--color-text-muted); display: block; margin-
 
 .home-links {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--spacing);
 }
 

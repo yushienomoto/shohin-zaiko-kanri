@@ -4,7 +4,7 @@
   document.getElementById('page-title').textContent = '場所' + loc;
 
   var nav = document.getElementById('location-nav');
-  ['A', 'B', 'C'].forEach(function (l) {
+  ['A', 'B', 'C', 'D'].forEach(function (l) {
     var a = document.createElement('a');
     a.href = 'location.html?loc=' + l;
     a.textContent = '場所' + l;
