@@ -103,6 +103,31 @@ nav.tabbar a.active, nav.tabbar button.active {
 
 .item-row:last-child { border-bottom: none; }
 
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 16px 8px;
+  }
+
+  .item-actions {
+    justify-content: stretch;
+  }
+
+  .item-actions .btn {
+    flex: 1;
+    min-height: 48px;
+    font-size: 16px;
+  }
+}
+
 .item-name { font-weight: 600; font-size: 16px; }
 .item-meta { font-size: 13px; color: var(--color-text-muted); }
 

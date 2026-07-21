@@ -39,6 +39,7 @@
     row.appendChild(left);
 
     var right = document.createElement('div');
+    right.className = 'item-actions';
 
     if (item.reportStatus.reported) {
       var badge = document.createElement('span');
@@ -49,7 +50,6 @@
       if (item.reportStatus.state === '少ない') {
         var upgradeBtn = document.createElement('button');
         upgradeBtn.className = 'btn btn-danger';
-        upgradeBtn.style.marginLeft = '8px';
         upgradeBtn.textContent = '在庫なしへ更新';
         upgradeBtn.addEventListener('click', async function () {
           try {
@@ -68,13 +68,11 @@
       lowBtn.textContent = '少ない';
       var outBtn = document.createElement('button');
       outBtn.className = 'btn btn-outline';
-      outBtn.style.marginLeft = '8px';
       outBtn.textContent = '在庫なし';
 
       function updateButtonState() {
         lowBtn.className = 'btn ' + (selections[item.itemId] === '少ない' ? 'btn-danger' : 'btn-outline');
         outBtn.className = 'btn ' + (selections[item.itemId] === '在庫なし' ? 'btn-danger' : 'btn-outline');
-        outBtn.style.marginLeft = '8px';
       }
       lowBtn.addEventListener('click', function () {
         selections[item.itemId] = selections[item.itemId] === '少ない' ? null : '少ない';

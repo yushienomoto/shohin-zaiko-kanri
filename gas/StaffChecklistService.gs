@@ -34,6 +34,28 @@ function getMonthlyCheckedBItemIds_(checkRecords) {
   return set;
 }
 
+/** 今週の開始日時(月曜0時、Asia/Tokyo基準)を返す */
+function getStartOfWeek_() {
+  var now = new Date();
+  var start = new Date(now);
+  var day = start.getDay() === 0 ? 7 : start.getDay();
+  start.setDate(start.getDate() - (day - 1));
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+/** 今週すでに確認済みの商品IDセットを返す(重要度Aの毎週確認判定に使用) */
+function getWeeklyCheckedItemIds_(checkRecords) {
+  var start = getStartOfWeek_();
+  var set = {};
+  checkRecords.forEach(function (r) {
+    if (new Date(r['確認日時']) >= start) {
+      set[r['商品ID']] = true;
+    }
+  });
+  return set;
+}
+
 function getLatestCheckByItem_(checkRecords) {
   var byItem = {};
   checkRecords.forEach(function (r) {
@@ -53,6 +75,7 @@ function handleChecklistGetWeekly_() {
   var checkRecords = getAllRecords_(checkSheet);
   var latestCheckByItem = getLatestCheckByItem_(checkRecords);
   var monthlyCheckedB = getMonthlyCheckedBItemIds_(checkRecords);
+  var weeklyChecked = getWeeklyCheckedItemIds_(checkRecords);
   var unprocessedByItem = getUnprocessedReportsByItem_();
 
   var result = [];
@@ -60,7 +83,7 @@ function handleChecklistGetWeekly_() {
     var itemId = item['商品ID'];
     var reasons = [];
     if (unprocessedByItem[itemId]) reasons.push(CHECK_REASON.SHORTAGE_REPORT);
-    if (item['重要度'] === 'A') reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
+    if (item['重要度'] === 'A' && !weeklyChecked[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
     if (item['重要度'] === 'B' && !monthlyCheckedB[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_B_MONTHLY);
     if (reasons.length === 0) return;
 
@@ -127,11 +150,13 @@ function handleStockCheckSubmit_(params) {
 
   var unprocessedByItem = getUnprocessedReportsByItem_();
   var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
-  var monthlyCheckedB = getMonthlyCheckedBItemIds_(getAllRecords_(checkSheet));
+  var existingCheckRecords = getAllRecords_(checkSheet);
+  var monthlyCheckedB = getMonthlyCheckedBItemIds_(existingCheckRecords);
+  var weeklyChecked = getWeeklyCheckedItemIds_(existingCheckRecords);
 
   var reasons = [];
   if (unprocessedByItem[itemId]) reasons.push(CHECK_REASON.SHORTAGE_REPORT);
-  if (item['重要度'] === 'A') reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
+  if (item['重要度'] === 'A' && !weeklyChecked[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
   if (item['重要度'] === 'B' && !monthlyCheckedB[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_B_MONTHLY);
 
   var judgement = computeJudgement_(currentQty, item['発注点']);
@@ -263,11 +288,7 @@ function handleStaffHomeGetSummary_() {
 
   var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
   var checkRecords = getAllRecords_(checkSheet);
-  var now = new Date();
-  var startOfWeek = new Date(now);
-  var day = startOfWeek.getDay() === 0 ? 7 : startOfWeek.getDay();
-  startOfWeek.setDate(startOfWeek.getDate() - (day - 1));
-  startOfWeek.setHours(0, 0, 0, 0);
+  var startOfWeek = getStartOfWeek_();
   var checkedCount = checkRecords.filter(function (r) {
     return new Date(r['確認日時']) >= startOfWeek;
   }).length;
