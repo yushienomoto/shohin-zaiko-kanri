@@ -68,14 +68,20 @@ function handleOrderTextGenerate_(params, session) {
   var processSheet = getSheet_(SHEET_NAMES.ORDER_PROCESS);
   var detailSheet = getSheet_(SHEET_NAMES.ORDER_DETAIL);
   var batches = [];
+  var processRows = [];
+  var detailRows = [];
+  var createdAt = nowIso_();
+
+  var totalItemCount = candidatesResult.suppliers.reduce(function (sum, s) { return sum + s.items.length; }, 0);
+  var detailIds = genRecordIdsForBatch_('D', totalItemCount);
+  var detailIdCursor = 0;
 
   candidatesResult.suppliers.forEach(function (s) {
     var isWhiteboard = s.supplier === HOMECENTER_SUPPLIER_NAME;
     var batchId = genBatchId_(s.supplier);
     var text = generateOrderText_(s.supplier, s.items);
-    var createdAt = nowIso_();
 
-    appendRecord_(processSheet, {
+    processRows.push({
       '発注バッチID': batchId,
       '仕入先': s.supplier,
       '種別': isWhiteboard ? BATCH_TYPE.WHITEBOARD : BATCH_TYPE.EMAIL,
@@ -87,8 +93,8 @@ function handleOrderTextGenerate_(params, session) {
     });
 
     s.items.forEach(function (it) {
-      appendRecord_(detailSheet, {
-        '明細ID': genRecordId_('D'),
+      detailRows.push({
+        '明細ID': detailIds[detailIdCursor++],
         '発注バッチID': batchId,
         '商品ID': it.itemId,
         '確認数量': it.checkedQty,
@@ -107,6 +113,9 @@ function handleOrderTextGenerate_(params, session) {
       status: BATCH_STATUS.TEXT_CREATED
     });
   });
+
+  appendRecords_(processSheet, processRows);
+  appendRecords_(detailSheet, detailRows);
 
   return { batches: batches };
 }
