@@ -14,6 +14,7 @@ var ROUTES_ = {
   'checklist.getAll': { auth: 'staff', handler: function () { return handleChecklistGetAll_(); } },
   'stockCheck.submit': { auth: 'staff', handler: function (params) { return handleStockCheckSubmit_(params); } },
   'stockCheck.update': { auth: 'staff', handler: function (params) { return handleStockCheckUpdate_(params); } },
+  'stockCheck.syncBatch': { auth: 'staff', handler: function (params) { return handleStockCheckSyncBatch_(params); } },
   'orderCandidates.list': { auth: 'staff', handler: function () { return handleOrderCandidatesList_(); } },
   'staffHome.getSummary': { auth: 'staff', handler: function () { return handleStaffHomeGetSummary_(); } },
 

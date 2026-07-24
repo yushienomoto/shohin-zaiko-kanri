@@ -222,6 +222,117 @@ function handleStockCheckUpdate_(params) {
   return data;
 }
 
+/**
+ * 今週の確認を一括登録/一括修正する。
+ * 商品ごとにAPIを分けず1回のリクエストで処理することで、シートの読み込み回数を
+ * 商品数に依存させず一定に抑える(stockCheck.submit/updateの連続呼び出しより高速)。
+ * items: [{ itemId, currentQty, checkId(修正時のみ) }]
+ */
+function handleStockCheckSyncBatch_(params) {
+  var staffName = (params.staffName || '').toString().trim();
+  var entries = params.items;
+  if (!staffName) {
+    throw new AppError_('VALIDATION_ERROR', '担当者名を入力してください。');
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new AppError_('VALIDATION_ERROR', '登録する商品がありません。');
+  }
+
+  var itemSheet = getSheet_(SHEET_NAMES.ITEM_MASTER);
+  var itemsById = {};
+  getAllRecords_(itemSheet).forEach(function (i) { itemsById[i['商品ID']] = i; });
+
+  var unprocessedByItem = getUnprocessedReportsByItem_();
+  var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
+  var existingCheckRecords = getAllRecords_(checkSheet);
+  var monthlyCheckedB = getMonthlyCheckedBItemIds_(existingCheckRecords);
+  var weeklyChecked = getWeeklyCheckedItemIds_(existingCheckRecords);
+  var checkById = {};
+  existingCheckRecords.forEach(function (r) { checkById[r['確認ID']] = r; });
+
+  var newEntries = entries.filter(function (e) { return !e.checkId; });
+  var updateEntries = entries.filter(function (e) { return !!e.checkId; });
+  var newIds = genRecordIdsForBatch_('C', newEntries.length);
+
+  var results = [];
+  var newRows = [];
+  var reportUpdateRows = [];
+  var now = nowIso_();
+
+  newEntries.forEach(function (entry, idx) {
+    var item = itemsById[entry.itemId];
+    if (!item || entry.currentQty === undefined || entry.currentQty === null || entry.currentQty === '') {
+      results.push({ itemId: entry.itemId, error: 'VALIDATION_ERROR' });
+      return;
+    }
+    var reasons = [];
+    if (unprocessedByItem[entry.itemId]) reasons.push(CHECK_REASON.SHORTAGE_REPORT);
+    if (item['重要度'] === 'A' && !weeklyChecked[entry.itemId]) reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
+    if (item['重要度'] === 'B' && !monthlyCheckedB[entry.itemId]) reasons.push(CHECK_REASON.IMPORTANCE_B_MONTHLY);
+
+    var judgement = computeJudgement_(entry.currentQty, item['発注点']);
+    var checkId = newIds[idx];
+
+    newRows.push({
+      '確認ID': checkId,
+      '確認日時': now,
+      '商品ID': entry.itemId,
+      '現在数量': entry.currentQty,
+      '当時の発注点': item['発注点'],
+      '当時の重要度': item['重要度'],
+      '当時の標準発注数': item['標準発注数'],
+      '当時の単位': item['単位'],
+      '由来理由': reasons.join(','),
+      '判定結果': judgement,
+      '確認者': staffName
+    });
+
+    (unprocessedByItem[entry.itemId] || []).forEach(function (r) { reportUpdateRows.push(r.__row); });
+
+    var resultItem = { itemId: entry.itemId, checkId: checkId, judgement: judgement };
+    if (judgement === CHECK_JUDGEMENT.CANDIDATE) {
+      resultItem.orderCandidate = { supplier: item['発注先'], standardOrderQty: item['標準発注数'], unit: item['単位'] };
+    }
+    results.push(resultItem);
+  });
+
+  updateEntries.forEach(function (entry) {
+    var record = checkById[entry.checkId];
+    if (!record || entry.currentQty === undefined || entry.currentQty === null || entry.currentQty === '') {
+      results.push({ itemId: entry.itemId, checkId: entry.checkId, error: 'NOT_FOUND' });
+      return;
+    }
+    var judgement = computeJudgement_(entry.currentQty, record['当時の発注点']);
+    updateRecordFields_(checkSheet, record.__row, {
+      '修正前数量': record['現在数量'],
+      '修正後数量': entry.currentQty,
+      '修正日時': now,
+      '修正者': staffName,
+      '現在数量': entry.currentQty,
+      '判定結果': judgement
+    });
+
+    var resultItem = { itemId: entry.itemId, checkId: entry.checkId, judgement: judgement };
+    if (judgement === CHECK_JUDGEMENT.CANDIDATE) {
+      var item = itemsById[entry.itemId];
+      resultItem.orderCandidate = { supplier: item ? item['発注先'] : null, standardOrderQty: record['当時の標準発注数'], unit: record['当時の単位'] };
+    }
+    results.push(resultItem);
+  });
+
+  if (newRows.length > 0) {
+    appendRecords_(checkSheet, newRows);
+  }
+  if (reportUpdateRows.length > 0) {
+    var reportSheet = getSheet_(SHEET_NAMES.SHORTAGE_REPORT);
+    reportUpdateRows.forEach(function (row) {
+      updateRecordFields_(reportSheet, row, { '処理状態': SHORTAGE_PROCESS_STATE.PROCESSED, '更新日時': now });
+    });
+  }
+
+  return { results: results };
+}
+
 /** 現在発注候補となっている商品(＝最新の確認が発注候補判定で、まだ発注文面生成前)を返す */
 function getCurrentOrderCandidates_() {
   var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);

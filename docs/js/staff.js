@@ -110,23 +110,30 @@
 
     var okCount = 0;
     var ngCount = 0;
-    for (var i = 0; i < targets.length; i++) {
-      var entry = targets[i];
-      var qty = Number(entry.qtyInput.value);
-      try {
-        var res;
-        if (entry.checkId) {
-          res = await callApi('stockCheck.update', { checkId: entry.checkId, newQty: qty, operatorName: session.staffName }, true);
-        } else {
-          res = await callApi('stockCheck.submit', { itemId: entry.itemId, currentQty: qty, checkerName: session.staffName }, true);
-          entry.checkId = res.checkId;
+    try {
+      var payloadItems = targets.map(function (entry) {
+        return { itemId: entry.itemId, currentQty: Number(entry.qtyInput.value), checkId: entry.checkId || undefined };
+      });
+      var res = await callApi('stockCheck.syncBatch', { staffName: session.staffName, items: payloadItems }, true);
+      var resultByItemId = {};
+      res.results.forEach(function (r) { resultByItemId[r.itemId] = r; });
+
+      targets.forEach(function (entry) {
+        var r = resultByItemId[entry.itemId];
+        if (!r || r.error) {
+          entry.resultArea.innerHTML = '<div class="alert alert-error">登録に失敗しました。</div>';
+          ngCount++;
+          return;
         }
-        entry.resultArea.innerHTML = '<div class="alert alert-' + (res.judgement === '発注候補' ? 'warning' : 'success') + '">判定: ' + res.judgement + '</div>';
+        entry.checkId = r.checkId;
+        entry.resultArea.innerHTML = '<div class="alert alert-' + (r.judgement === '発注候補' ? 'warning' : 'success') + '">判定: ' + r.judgement + '</div>';
         okCount++;
-      } catch (e) {
+      });
+    } catch (e) {
+      targets.forEach(function (entry) {
         entry.resultArea.innerHTML = '<div class="alert alert-error">' + e.message + '</div>';
-        ngCount++;
-      }
+      });
+      ngCount = targets.length;
     }
 
     bulkBtn.disabled = false;

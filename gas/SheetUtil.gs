@@ -52,6 +52,26 @@ function appendRecord_(sheet, record) {
 }
 
 /**
+ * 複数レコードを1回のAPI呼び出しでまとめて追記する(appendRecord_のN回呼び出しより高速)。
+ */
+function appendRecords_(sheet, records) {
+  if (!records || records.length === 0) return;
+  var headers = getHeaderMap_(sheet);
+  var lastCol = sheet.getLastColumn();
+  var startRow = sheet.getLastRow() + 1;
+  var rows = records.map(function (record) {
+    var row = new Array(lastCol).fill('');
+    Object.keys(headers).forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(record, key)) {
+        row[headers[key]] = record[key];
+      }
+    });
+    return row;
+  });
+  sheet.getRange(startRow, 1, rows.length, lastCol).setValues(rows);
+}
+
+/**
  * 指定行(1-indexed)を、渡したフィールドのみ更新する(部分更新)。
  */
 function updateRecordFields_(sheet, rowIndex, fields) {
@@ -105,6 +125,20 @@ function genItemId_() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * ロックを取らずに一括採番する(1回のリクエスト内でメモリ上に全行を組み立ててから
+ * まとめて書き込むバッチ処理向け。タイムスタンプ+連番+乱数のため衝突の可能性は無視できる)。
+ */
+function genRecordIdsForBatch_(prefix, count) {
+  var ts = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMddHHmmssSSS');
+  var ids = [];
+  for (var i = 0; i < count; i++) {
+    var rand = Math.floor(Math.random() * 900 + 100);
+    ids.push(prefix + ts + '-' + i + '-' + rand);
+  }
+  return ids;
 }
 
 function genBatchId_(supplier) {
