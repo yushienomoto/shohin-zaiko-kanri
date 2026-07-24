@@ -67,22 +67,41 @@ function getLatestCheckByItem_(checkRecords) {
   return byItem;
 }
 
-function handleChecklistGetWeekly_() {
+/**
+ * 商品マスター(使用中)・在庫確認履歴・不足報告履歴(未処理)を1回ずつ読み込み、
+ * checklist/orderCandidates/staffHome/orderText.generateで使い回すための共通コンテキスト。
+ * これらを個別のハンドラごとに読み直すと同じシートを何度も全件読み込むことになり遅くなるため、
+ * 呼び出し元でまとめて1回読み込んで各compute*_関数へ渡す。
+ */
+function loadStaffContext_() {
   var itemSheet = getSheet_(SHEET_NAMES.ITEM_MASTER);
-  var items = getAllRecords_(itemSheet).filter(function (r) { return r['使用状態'] === ITEM_STATUS.ACTIVE; });
+  var allItems = getAllRecords_(itemSheet);
+  var itemsById = {};
+  allItems.forEach(function (i) { itemsById[i['商品ID']] = i; });
 
   var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
   var checkRecords = getAllRecords_(checkSheet);
-  var latestCheckByItem = getLatestCheckByItem_(checkRecords);
-  var monthlyCheckedB = getMonthlyCheckedBItemIds_(checkRecords);
-  var weeklyChecked = getWeeklyCheckedItemIds_(checkRecords);
-  var unprocessedByItem = getUnprocessedReportsByItem_();
+
+  return {
+    itemSheet: itemSheet,
+    items: allItems.filter(function (r) { return r['使用状態'] === ITEM_STATUS.ACTIVE; }),
+    itemsById: itemsById,
+    checkSheet: checkSheet,
+    checkRecords: checkRecords,
+    unprocessedByItem: getUnprocessedReportsByItem_()
+  };
+}
+
+function computeWeeklyItems_(ctx) {
+  var latestCheckByItem = getLatestCheckByItem_(ctx.checkRecords);
+  var monthlyCheckedB = getMonthlyCheckedBItemIds_(ctx.checkRecords);
+  var weeklyChecked = getWeeklyCheckedItemIds_(ctx.checkRecords);
 
   var result = [];
-  items.forEach(function (item) {
+  ctx.items.forEach(function (item) {
     var itemId = item['商品ID'];
     var reasons = [];
-    if (unprocessedByItem[itemId]) reasons.push(CHECK_REASON.SHORTAGE_REPORT);
+    if (ctx.unprocessedByItem[itemId]) reasons.push(CHECK_REASON.SHORTAGE_REPORT);
     if (item['重要度'] === 'A' && !weeklyChecked[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_A_WEEKLY);
     if (item['重要度'] === 'B' && !monthlyCheckedB[itemId]) reasons.push(CHECK_REASON.IMPORTANCE_B_MONTHLY);
     if (reasons.length === 0) return;
@@ -98,13 +117,17 @@ function handleChecklistGetWeekly_() {
       lastCheckedQty: lastCheck ? lastCheck['現在数量'] : null,
       lastCheckedAt: lastCheck ? lastCheck['確認日時'] : null,
       reasons: reasons,
-      shortageReports: (unprocessedByItem[itemId] || []).map(function (r) {
+      shortageReports: (ctx.unprocessedByItem[itemId] || []).map(function (r) {
         return { reportId: r['報告ID'], state: r['状態'], reporterName: r['報告者名'], reportedAt: r['報告日時'] };
       })
     });
   });
 
-  return { items: result };
+  return result;
+}
+
+function handleChecklistGetWeekly_() {
+  return { items: computeWeeklyItems_(loadStaffContext_()) };
 }
 
 function handleChecklistGetAll_() {
@@ -334,10 +357,8 @@ function handleStockCheckSyncBatch_(params) {
 }
 
 /** 現在発注候補となっている商品(＝最新の確認が発注候補判定で、まだ発注文面生成前)を返す */
-function getCurrentOrderCandidates_() {
-  var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
-  var checkRecords = getAllRecords_(checkSheet);
-  var latestByItem = getLatestCheckByItem_(checkRecords);
+function computeOrderCandidates_(ctx) {
+  var latestByItem = getLatestCheckByItem_(ctx.checkRecords);
 
   var detailSheet = getSheet_(SHEET_NAMES.ORDER_DETAIL);
   var details = getAllRecords_(detailSheet);
@@ -345,15 +366,11 @@ function getCurrentOrderCandidates_() {
   var batchesById = {};
   getAllRecords_(processSheet).forEach(function (b) { batchesById[b['発注バッチID']] = b; });
 
-  var itemSheet = getSheet_(SHEET_NAMES.ITEM_MASTER);
-  var itemsById = {};
-  getAllRecords_(itemSheet).forEach(function (i) { itemsById[i['商品ID']] = i; });
-
   var candidates = [];
   Object.keys(latestByItem).forEach(function (itemId) {
     var check = latestByItem[itemId];
     if (check['判定結果'] !== CHECK_JUDGEMENT.CANDIDATE) return;
-    var item = itemsById[itemId];
+    var item = ctx.itemsById[itemId];
     if (!item || item['使用状態'] !== ITEM_STATUS.ACTIVE) return;
 
     var alreadyOrdered = details.some(function (d) {
@@ -380,27 +397,29 @@ function getCurrentOrderCandidates_() {
   return candidates;
 }
 
-function handleOrderCandidatesList_() {
-  var candidates = getCurrentOrderCandidates_();
+function groupCandidatesBySupplier_(candidates) {
   var bySupplier = {};
   candidates.forEach(function (c) {
     if (!bySupplier[c.supplier]) bySupplier[c.supplier] = [];
     bySupplier[c.supplier].push(c);
   });
-  var suppliers = Object.keys(bySupplier).map(function (supplier) {
+  return Object.keys(bySupplier).map(function (supplier) {
     return { supplier: supplier, items: bySupplier[supplier] };
   });
-  return { suppliers: suppliers };
+}
+
+function handleOrderCandidatesList_() {
+  var candidates = computeOrderCandidates_(loadStaffContext_());
+  return { suppliers: groupCandidatesBySupplier_(candidates) };
 }
 
 function handleStaffHomeGetSummary_() {
-  var weekly = handleChecklistGetWeekly_();
-  var candidates = getCurrentOrderCandidates_();
+  var ctx = loadStaffContext_();
+  var weeklyItems = computeWeeklyItems_(ctx);
+  var candidates = computeOrderCandidates_(ctx);
 
-  var checkSheet = getSheet_(SHEET_NAMES.STOCK_CHECK);
-  var checkRecords = getAllRecords_(checkSheet);
   var startOfWeek = getStartOfWeek_();
-  var checkedCount = checkRecords.filter(function (r) {
+  var checkedCount = ctx.checkRecords.filter(function (r) {
     return new Date(r['確認日時']) >= startOfWeek;
   }).length;
 
@@ -412,7 +431,7 @@ function handleStaffHomeGetSummary_() {
   });
 
   return {
-    uncheckedCount: weekly.items.length,
+    uncheckedCount: weeklyItems.length,
     checkedCount: checkedCount,
     orderCandidateCount: candidates.length,
     pendingBatches: pendingBatches

@@ -53,14 +53,15 @@ function handleOrderTextGenerate_(params, session) {
     throw new AppError_('VALIDATION_ERROR', '担当者名を入力してください。');
   }
 
-  var weekly = handleChecklistGetWeekly_();
-  if (weekly.items.length > 0) {
+  var ctx = loadStaffContext_();
+  var weeklyItems = computeWeeklyItems_(ctx);
+  if (weeklyItems.length > 0) {
     throw new AppError_('VALIDATION_ERROR', '未確認の商品が残っています。', {
-      uncheckedItems: weekly.items.map(function (i) { return { itemId: i.itemId, name: i.name }; })
+      uncheckedItems: weeklyItems.map(function (i) { return { itemId: i.itemId, name: i.name }; })
     });
   }
 
-  var candidatesResult = handleOrderCandidatesList_();
+  var candidatesResult = { suppliers: groupCandidatesBySupplier_(computeOrderCandidates_(ctx)) };
   if (candidatesResult.suppliers.length === 0) {
     throw new AppError_('VALIDATION_ERROR', '発注候補がありません。');
   }
